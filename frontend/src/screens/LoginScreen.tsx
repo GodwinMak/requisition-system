@@ -23,13 +23,13 @@ export default function LoginScreen() {
     try {
       const response = await userService.login({ email, password });
       if (response.token) {
-        await login(response.token);
+        
         navigate('/settings');
       } else {
         setError('Invalid response from server. No token received.');
       }
     } catch (err: any) {
-      console.error('Login Error:', err);
+      console.error('Login Error:', err.response.data);
       setError(err.friendlyMessage || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);

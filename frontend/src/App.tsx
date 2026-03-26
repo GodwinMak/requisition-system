@@ -6,10 +6,10 @@ import RegisterScreen from './screens/RegisterScreen';
 import SettingsScreen from './screens/SettingsScreen';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  // const { user, isLoading } = useAuth();
   
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-surface">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  // if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-surface">Loading...</div>;
+  // if (!user) return <Navigate to="/login" replace />;
   
   return <>{children}</>;
 }
