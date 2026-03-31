@@ -32,13 +32,13 @@ export default function Settings() {
     setProfileMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.put(api.url(`/${user?.id}`), 
+      const response = await axios.put(api.url(`/update`), 
         { username: username.trim() }, 
         { headers: api.getHeaders() }
       );
 
       const data = response.data;
-      
+    
       // Update local storage so the UI updates immediately
       if (user) {
         authHelper.setUser({ ...user, username: data.user?.username || username });
