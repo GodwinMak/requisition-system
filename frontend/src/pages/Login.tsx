@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { authHelper } from '../lib/auth';
 import { api } from '../lib/api';
@@ -23,64 +24,34 @@ export default function Login() {
     setError('');
 
     try {
-      // 1. Login to get token
-      console.log('Attempting login for:', email);
-      const loginResponse = await fetch(api.url('/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const loginData = await loginResponse.json();
-      console.log('Login Response Data:', loginData);
-
-      if (!loginResponse.ok) {
-        throw new Error(loginData.message || loginData.error || 'Login failed');
-      }
+      const loginResponse = await axios.post(api.url('/login'), { email, password });
+      const loginData = loginResponse.data;
 
       const token = loginData.token || loginData.accessToken;
       if (!token) {
         throw new Error('No token received from server');
       }
 
-      authHelper.setToken(token);
+      // Ensure token is clean of any whitespace/newlines
+      authHelper.setToken(token.trim());
 
       // Check if user data is already in login response
       const userFromLogin = loginData.user || (loginData.role ? loginData : null);
       
       try {
-        // 2. Try to fetch profile to get latest user details
-        console.log('Fetching profile with token...');
-        const profileResponse = await fetch(api.url('/profile'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const profileResponse = await axios.get(api.url('/profile'), {
+          headers: api.getHeaders()
         });
 
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          console.log('Profile Response Data:', profileData);
-          const userData = profileData.user || profileData;
-          console.log('User data to be stored:', userData);
-          authHelper.setUser(userData);
-          navigate('/dashboard');
-          return;
-        } else {
-          console.warn(`Profile fetch failed with status: ${profileResponse.status}`);
-          // If profile fetch fails but we have user data from login, use that
-          if (userFromLogin) {
-            console.log('Using user data from login response.', userFromLogin);
-            authHelper.setUser(userFromLogin);
-            navigate('/dashboard');
-            return;
-          }
-          throw new Error(`Failed to fetch user profile (Status: ${profileResponse.status})`);
-        }
+        const profileData = profileResponse.data;
+        const userData = profileData.user || profileData;
+        authHelper.setUser(userData);
+        navigate('/dashboard');
+        return;
       } catch (profileErr) {
         console.error('Profile fetch error:', profileErr);
         // Fallback to user data from login if available
         if (userFromLogin) {
-          console.log('Falling back to user data from login response.', userFromLogin);
           authHelper.setUser(userFromLogin);
           navigate('/dashboard');
           return;
@@ -88,8 +59,7 @@ export default function Login() {
         throw profileErr;
       }
     } catch (err: any) {
-      console.error('Login Error:', err);
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
       authHelper.clearSession();
     } finally {
       setLoading(false);

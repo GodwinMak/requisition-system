@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { UserPlus, Mail, Lock, User, Loader2 } from 'lucide-react';
@@ -18,27 +19,17 @@ export default function Register() {
     setError('');
 
     try {
-      const response = await fetch(api.url('/register'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          username, 
-          email, 
-          password, 
-          role: 'guest' // Default role as per requirements
-        }),
+      await axios.post(api.url('/register'), { 
+        username, 
+        email, 
+        password, 
+        role: 'guest' 
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
 
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }

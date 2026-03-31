@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { authHelper } from '../lib/auth';
 import { api } from '../lib/api';
@@ -31,17 +32,12 @@ export default function Settings() {
     setProfileMessage({ type: '', text: '' });
 
     try {
-      console.log(`[API PUT] Updating username for user ${user?.id}:`, { username });
+      const response = await axios.put(api.url(`/${user?.id}`), 
+        { username: username.trim() }, 
+        { headers: api.getHeaders() }
+      );
 
-      // Body (update username): { "username": "newname" }
-      const response = await fetch(api.url(`/${user?.id}`), {
-        method: 'PUT',
-        headers: api.getHeaders(),
-        body: JSON.stringify({ username: username.trim() }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to update username');
+      const data = response.data;
       
       // Update local storage so the UI updates immediately
       if (user) {
@@ -50,7 +46,7 @@ export default function Settings() {
       
       setProfileMessage({ type: 'success', text: 'Username updated successfully' });
     } catch (err: any) {
-      setProfileMessage({ type: 'error', text: err.message });
+      setProfileMessage({ type: 'error', text: err.response?.data?.message || err.message });
     } finally {
       setProfileLoading(false);
     }
@@ -66,28 +62,22 @@ export default function Settings() {
     setSecurityMessage({ type: '', text: '' });
 
     try {
-      console.log(`[API PUT] Changing password for user ${user?.id}:`, { currentPassword, password: newPassword });
-
-      // Body (change password): { "currentPassword": "...", "password": "newpassword" }
-      const response = await fetch(api.url(`/${user?.id}`), {
-        method: 'PUT',
-        headers: api.getHeaders(),
-        body: JSON.stringify({ 
+      const response = await axios.put(api.url(`/profile`), 
+        { 
           currentPassword: currentPassword, 
-          password: newPassword // Backend destructures "password" for the new one
-        }),
-      });
+          password: newPassword 
+        },
+        { headers: api.getHeaders() }
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || 'Failed to change password');
+      const data = response.data;
 
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setSecurityMessage({ type: 'success', text: 'Password changed successfully.' });
     } catch (err: any) {
-      setSecurityMessage({ type: 'error', text: err.message });
+      setSecurityMessage({ type: 'error', text: err.response?.data?.message || err.message });
     } finally {
       setSecurityLoading(false);
     }

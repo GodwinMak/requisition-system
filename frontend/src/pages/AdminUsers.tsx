@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { authHelper } from '../lib/auth';
 import { api } from '../lib/api';
 import { User, Role } from '../types';
@@ -39,35 +40,33 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     setError(''); // Clear previous errors before fetching
     try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-        search: search,
-        role: filterRole,
-        isActive: filterStatus
-      }).toString();
-
-      const url = api.url(`/?${queryParams}`);
-      
-      // Ensure we get fresh headers containing the Bearer token
-      const headers = {
-        ...api.getHeaders(),
-        'Cache-Control': 'no-cache'
+      const params: any = {
+        page,
+        pageSize,
       };
 
-      console.log(`[API GET] Fetching users: ${url}`, { headers });
+      if (search.trim()) params.search = search.trim();
+      if (filterRole) params.role = filterRole;
+      // Only send isActive if a specific status is selected
+      if (filterStatus === 'true' || filterStatus === 'false') {
+        params.isActive = filterStatus;
+      }
 
-      const response = await fetch(url, {
-        headers: headers
+      const response = await axios.get(api.url('/'), {
+        params,
+        headers: {
+          ...api.getHeaders(),
+          'Cache-Control': 'no-cache'
+        }
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Could not load users');
+
+      const data = response.data;
  
       // Backend user.js returns { users: rows, totalItems: count ... }
       setUsers(data.users || []);
       setTotalItems(data.totalItems || 0);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -80,22 +79,19 @@ export default function AdminUsers() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateLoading(true);
-    console.log("[API POST] Registering new entity:", newUserData);
 
     try {
-      const response = await fetch(api.url('/register'), {
-        method: 'POST',
-        headers: api.getHeaders(),
-        body: JSON.stringify(newUserData)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to create user');
+      const response = await axios.post(
+        api.url('/register'), 
+        newUserData, 
+        { headers: api.getHeaders() }
+      );
       
       setIsCreateModalOpen(false);
       setNewUserData({ username: '', email: '', password: '', role: 'normal' });
       fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.response?.data?.message || err.message);
     } finally {
       setCreateLoading(false);
     }
@@ -111,17 +107,15 @@ export default function AdminUsers() {
         if (allowedKeys.includes(key)) filteredBody[key] = (updates as any)[key];
       });
       
-      console.log(`[API PUT] Updating user ${id}:`, filteredBody);
+      await axios.put(
+        api.url(`/${id}`), 
+        filteredBody, 
+        { headers: api.getHeaders() }
+      );
 
-      const response = await fetch(api.url(`/${id}`), {
-        method: 'PUT',
-        headers: api.getHeaders(),
-        body: JSON.stringify(filteredBody)
-      });
-      if (!response.ok) throw new Error('Failed to update user');
       await fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.response?.data?.message || err.message);
     } finally {
       setProcessingId(null);
     }
@@ -130,17 +124,14 @@ export default function AdminUsers() {
 
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
-    console.log(`[API DELETE] Deleting user ID: ${id}`);
 
     try {
-      const response = await fetch(api.url(`/${id}`), {
-        method: 'DELETE',
+      await axios.delete(api.url(`/${id}`), {
         headers: api.getHeaders()
       });
-      if (!response.ok) throw new Error('Failed to delete user');
       fetchUsers();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.response?.data?.message || err.message);
     }
   };
 
