@@ -6,7 +6,10 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   XCircle,
-  MoreHorizontal,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Trash2,
   Edit2,
@@ -18,20 +21,51 @@ import { cn } from '../lib/utils';
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState('');
   
+  // Pagination and Filter States
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>(''); // 'true' or 'false'
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newUserData, setNewUserData] = useState({ username: '', email: '', password: '', role: 'operator' as Role });
+  const [newUserData, setNewUserData] = useState({ username: '', email: '', password: '', role: 'normal' as Role });
   const [createLoading, setCreateLoading] = useState(false);
 
   const fetchUsers = async () => {
+    setError(''); // Clear previous errors before fetching
     try {
-      const response = await fetch(api.url('/'), {
-        headers: api.getHeaders()
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        search: search,
+        role: filterRole,
+        isActive: filterStatus
+      }).toString();
+
+      const url = api.url(`/?${queryParams}`);
+      
+      // Ensure we get fresh headers containing the Bearer token
+      const headers = {
+        ...api.getHeaders(),
+        'Cache-Control': 'no-cache'
+      };
+
+      console.log(`[API GET] Fetching users: ${url}`, { headers });
+
+      const response = await fetch(url, {
+        headers: headers
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-      setUsers(Array.isArray(data) ? data : (data.users || []));
+      if (!response.ok) throw new Error(data.message || 'Could not load users');
+ 
+      // Backend user.js returns { users: rows, totalItems: count ... }
+      setUsers(data.users || []);
+      setTotalItems(data.totalItems || 0);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -41,13 +75,15 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page, filterRole, filterStatus]); // Re-fetch when these change. Search usually handled by a button or debounce.
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateLoading(true);
+    console.log("[API POST] Registering new entity:", newUserData);
+
     try {
-      const response = await fetch(api.url('/'), {
+      const response = await fetch(api.url('/register'), {
         method: 'POST',
         headers: api.getHeaders(),
         body: JSON.stringify(newUserData)
@@ -56,7 +92,7 @@ export default function AdminUsers() {
       if (!response.ok) throw new Error(data.message || 'Failed to create user');
       
       setIsCreateModalOpen(false);
-      setNewUserData({ username: '', email: '', password: '', role: 'operator' });
+      setNewUserData({ username: '', email: '', password: '', role: 'normal' });
       fetchUsers();
     } catch (err: any) {
       alert(err.message);
@@ -66,21 +102,36 @@ export default function AdminUsers() {
   };
 
   const handleUpdateUser = async (id: string, updates: Partial<User>) => {
+    setProcessingId(id);
     try {
+      // Ensure body ONLY contains valid fields for updateById
+      const allowedKeys = ['email', 'password', 'username', 'role', 'isActive'];
+      const filteredBody: any = {};
+      Object.keys(updates).forEach(key => {
+        if (allowedKeys.includes(key)) filteredBody[key] = (updates as any)[key];
+      });
+      
+      console.log(`[API PUT] Updating user ${id}:`, filteredBody);
+
       const response = await fetch(api.url(`/${id}`), {
         method: 'PUT',
         headers: api.getHeaders(),
-        body: JSON.stringify(updates)
+        body: JSON.stringify(filteredBody)
       });
       if (!response.ok) throw new Error('Failed to update user');
-      fetchUsers();
+      await fetchUsers();
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setProcessingId(null);
     }
   };
+  
 
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
+    console.log(`[API DELETE] Deleting user ID: ${id}`);
+
     try {
       const response = await fetch(api.url(`/${id}`), {
         method: 'DELETE',
@@ -114,6 +165,54 @@ export default function AdminUsers() {
           <UserPlus className="w-5 h-5" />
           Register New Entity
         </button>
+      </div>
+
+      {/* Filters and Search Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10">
+        <div className="relative col-span-1 md:col-span-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+          <input 
+            type="text"
+            placeholder="Search by username or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && fetchUsers()}
+            className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant/20 rounded-lg text-sm focus:border-primary focus:ring-0"
+          />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-on-surface-variant" />
+          <select 
+            value={filterRole}
+            onChange={(e) => { setFilterRole(e.target.value); setPage(1); }}
+            className="flex-1 py-2 bg-surface-container-lowest border border-outline-variant/20 rounded-lg text-xs font-bold uppercase tracking-wider focus:ring-0"
+          >
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="procurement">Procurement</option>
+            <option value="normal">Normal</option>
+            <option value="approver">Approver</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select 
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+            className="flex-1 py-2 bg-surface-container-lowest border border-outline-variant/20 rounded-lg text-xs font-bold uppercase tracking-wider focus:ring-0"
+          >
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <button 
+            onClick={fetchUsers}
+            className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold"
+          >
+            Apply
+          </button>
+        </div>
       </div>
 
       {isCreateModalOpen && (
@@ -165,10 +264,10 @@ export default function AdminUsers() {
                     className="w-full px-4 py-3 bg-surface-container-low border-b-2 border-outline-variant/30 focus:border-primary focus:ring-0 transition-all font-body text-on-surface"
                   >
                     <option value="admin">Admin</option>
-                    <option value="engineer">Engineer</option>
-                    <option value="supervisor">Supervisor</option>
-                    <option value="operator">Operator</option>
-                    <option value="guest">Guest</option>
+                    <option value="procurement">Procurement</option>
+                    <option value="normal">Normal</option>
+                    <option value="approver">Approver</option>
+                    
                   </select>
                 </div>
               </div>
@@ -222,21 +321,22 @@ export default function AdminUsers() {
                         disabled={user.id === authHelper.getUser()?.id}
                       >
                         <option value="admin">Admin</option>
-                        <option value="engineer">Engineer</option>
-                        <option value="supervisor">Supervisor</option>
-                        <option value="operator">Operator</option>
-                        <option value="guest">Guest</option>
+                        <option value="procurement">Procurement</option>
+                        <option value="normal">Normal</option>
+                        <option value="approver">Approver</option>
+                    
                       </select>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center space-x-2">
-                        <button 
+                        {processingId === user.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        ) : (
+                          <button 
                           onClick={() => handleUpdateUser(user.id, { isActive: !user.isActive })}
-                          className={cn(
-                            "w-2 h-2 rounded-full", 
-                            user.isActive ? "bg-tertiary" : "bg-error"
-                          )} 
-                        />
+                          className={cn("w-2 h-2 rounded-full", user.isActive ? "bg-tertiary" : "bg-error")} 
+                          />
+                        )}
                         <span className="text-xs font-bold text-primary uppercase tracking-wider">
                           {user.isActive ? 'Active' : 'Inactive'}
                         </span>
@@ -252,15 +352,36 @@ export default function AdminUsers() {
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
-                        <button className="text-on-surface-variant hover:text-primary p-2 transition-colors">
-                          <MoreHorizontal className="w-5 h-5" />
-                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination Footer */}
+            <div className="px-8 py-4 bg-surface-container-low flex justify-between items-center">
+              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+                Showing {users.length} of {totalItems} Entities
+              </p>
+              <div className="flex items-center gap-2">
+                <button 
+                  disabled={page === 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="p-2 rounded-lg hover:bg-surface-container disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-xs font-bold text-primary">Page {page}</span>
+                <button 
+                  disabled={users.length < pageSize}
+                  onClick={() => setPage(p => p + 1)}
+                  className="p-2 rounded-lg hover:bg-surface-container disabled:opacity-30 transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

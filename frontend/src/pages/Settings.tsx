@@ -20,112 +20,76 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState({ type: '', text: '' });
+  const [securityMessage, setSecurityMessage] = useState({ type: '', text: '' });
 
   const handleUpdateUsername = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id && !user?._id) {
-      setMessage({ type: 'error', text: 'User ID not found in session. Please log in again.' });
-      return;
-    }
-
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    const userId = user.id || (user as any)._id;
-    console.log('Attempting to update username for user:', userId);
+    setProfileLoading(true);
+    setProfileMessage({ type: '', text: '' });
 
     try {
-      // Try /profile first as per documentation
-      // Including ID in body as a precaution
-      let response = await fetch(api.url('/profile'), {
+      console.log(`[API PUT] Updating username for user ${user?.id}:`, { username });
+
+      // Body (update username): { "username": "newname" }
+      const response = await fetch(api.url(`/${user?.id}`), {
         method: 'PUT',
         headers: api.getHeaders(),
-        body: JSON.stringify({ id: userId, username }),
+        body: JSON.stringify({ username: username.trim() }),
       });
 
-      let data = await response.json();
-      console.log('Update Profile Response:', data);
-
-      // Fallback to ID-based endpoint if /profile returns "not found" or similar
-      if (!response.ok && (response.status === 404 || (data.message && data.message.toLowerCase().includes('not found')))) {
-        console.warn('PUT /profile failed with "not found". Falling back to PUT /:id');
-        response = await fetch(api.url(`/${userId}`), {
-          method: 'PUT',
-          headers: api.getHeaders(),
-          body: JSON.stringify({ id: userId, username }),
-        });
-        data = await response.json();
-        console.log('Update User (ID-based) Response:', data);
-      }
-
-      if (!response.ok) throw new Error(data.message || data.error || 'Failed to update username');
-
-      // Update local storage
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update username');
+      
+      // Update local storage so the UI updates immediately
       if (user) {
-        authHelper.setUser({ ...user, username });
+        authHelper.setUser({ ...user, username: data.user?.username || username });
       }
       
-      setMessage({ type: 'success', text: 'Username updated successfully' });
+      setProfileMessage({ type: 'success', text: 'Username updated successfully' });
     } catch (err: any) {
-      console.error('Update Username Error:', err);
-      setMessage({ type: 'error', text: err.message });
+      setProfileMessage({ type: 'error', text: err.message });
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
+      setSecurityMessage({ type: 'error', text: 'New passwords do not match' });
       return;
     }
-
-    if (!user?.id && !user?._id) {
-      setMessage({ type: 'error', text: 'User ID not found in session. Please log in again.' });
-      return;
-    }
-
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    const userId = user.id || (user as any)._id;
+    setSecurityLoading(true);
+    setSecurityMessage({ type: '', text: '' });
 
     try {
-      let response = await fetch(api.url('/profile'), {
+      console.log(`[API PUT] Changing password for user ${user?.id}:`, { currentPassword, password: newPassword });
+
+      // Body (change password): { "currentPassword": "...", "password": "newpassword" }
+      const response = await fetch(api.url(`/${user?.id}`), {
         method: 'PUT',
         headers: api.getHeaders(),
-        body: JSON.stringify({ id: userId, currentPassword, password: newPassword }),
+        body: JSON.stringify({ 
+          currentPassword: currentPassword, 
+          password: newPassword // Backend destructures "password" for the new one
+        }),
       });
 
-      let data = await response.json();
-      console.log('Change Password Response:', data);
+      const data = await response.json();
 
-      // Fallback to ID-based endpoint if /profile returns "not found"
-      if (!response.ok && (response.status === 404 || (data.message && data.message.toLowerCase().includes('not found')))) {
-        console.warn('PUT /profile failed with "not found". Falling back to PUT /:id for password change');
-        response = await fetch(api.url(`/${userId}`), {
-          method: 'PUT',
-          headers: api.getHeaders(),
-          body: JSON.stringify({ id: userId, currentPassword, password: newPassword }),
-        });
-        data = await response.json();
-        console.log('Change Password (ID-based) Response:', data);
-      }
-
-      if (!response.ok) throw new Error(data.message || data.error || 'Failed to change password');
+      if (!response.ok) throw new Error(data.message || 'Failed to change password');
 
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setMessage({ type: 'success', text: 'Password changed successfully.' });
+      setSecurityMessage({ type: 'success', text: 'Password changed successfully.' });
     } catch (err: any) {
-      console.error('Change Password Error:', err);
-      setMessage({ type: 'error', text: err.message });
+      setSecurityMessage({ type: 'error', text: err.message });
     } finally {
-      setLoading(false);
+      setSecurityLoading(false);
     }
   };
 
@@ -136,21 +100,14 @@ export default function Settings() {
         <p className="text-on-surface-variant text-sm font-label mt-2 uppercase tracking-widest">Configure your identity and security protocols</p>
       </div>
 
-      {message.text && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 ${
-          message.type === 'success' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="text-sm font-medium">{message.text}</p>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Profile Settings */}
         <section className="bg-surface-container p-8 rounded-3xl space-y-6 shadow-sm">
-          <div className="flex items-center gap-3 text-primary">
-            <SettingsIcon className="w-6 h-6" />
-            <h3 className="font-headline text-xl font-bold">Profile Identity</h3>
+          <div className="flex items-center justify-between text-primary">
+            <div className="flex items-center gap-3">
+              <SettingsIcon className="w-6 h-6" />
+              <h3 className="font-headline text-xl font-bold">Profile Identity</h3>
+            </div>
           </div>
           
           <form onSubmit={handleUpdateUsername} className="space-y-4">
@@ -173,12 +130,20 @@ export default function Settings() {
                 className="w-full px-4 py-3 bg-surface-container-low border-b-2 border-outline-variant/10 font-body text-on-surface-variant opacity-60 cursor-not-allowed"
               />
             </div>
+            {profileMessage.text && (
+              <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                profileMessage.type === 'success' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'
+              }`}>
+                {profileMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <p className="text-xs font-medium">{profileMessage.text}</p>
+              </div>
+            )}
             <button 
               type="submit"
-              disabled={loading}
+              disabled={profileLoading}
               className="flex items-center justify-center gap-2 px-6 py-3 industrial-gradient text-on-primary rounded-lg font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {profileLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Update Profile
             </button>
           </form>
@@ -222,12 +187,20 @@ export default function Settings() {
                 required
               />
             </div>
+            {securityMessage.text && (
+              <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                securityMessage.type === 'success' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-error-container text-on-error-container'
+              }`}>
+                {securityMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <p className="text-xs font-medium">{securityMessage.text}</p>
+              </div>
+            )}
             <button 
               type="submit"
-              disabled={loading}
+              disabled={securityLoading}
               className="flex items-center justify-center gap-2 px-6 py-3 industrial-gradient text-on-primary rounded-lg font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+              {securityLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
               Change Password
             </button>
           </form>

@@ -60,7 +60,7 @@ export default function Dashboard() {
             <span className="bg-primary-fixed text-on-primary-fixed-variant px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
               {user?.role} Access
             </span>
-            <p className="text-on-surface-variant text-sm font-label">System Operator: <span className="font-bold text-primary">{user?.username}</span></p>
+            <p className="text-on-surface-variant text-sm font-label">System User: <span className="font-bold text-primary">{user?.username}</span></p>
           </div>
         </div>
         <div className="hidden md:block text-right">
