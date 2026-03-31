@@ -19,6 +19,7 @@ const verifyToken = async (req, res, next) => {
     
     // Get user from database to ensure they still exist and get current role
     const user = await Users.findByPk(decoded.userId);
+    const user = await Users.findByPk(decoded.id);
     
     if (!user) {
       return res.status(401).json({ message: "User not found" });

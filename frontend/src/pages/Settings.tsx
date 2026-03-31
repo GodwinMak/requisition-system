@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { authHelper } from '../lib/auth';
+import axios from 'axios';
 import { api } from '../lib/api';
 import { 
   User, 
@@ -62,6 +63,7 @@ export default function Settings() {
     setSecurityMessage({ type: '', text: '' });
 
     try {
+<<<<<<< HEAD
       const response = await axios.put(api.url(`/profile`), 
         { 
           currentPassword: currentPassword, 
@@ -80,8 +82,38 @@ export default function Settings() {
       setSecurityMessage({ type: 'error', text: err.response?.data?.message || err.message });
     } finally {
       setSecurityLoading(false);
+=======
+      console.log(`[API PUT] Changing password for user ${user?.id}:`, { currentPassword, password: newPassword });
+
+
+    try {
+  const response = await axios.put(
+    api.url('/profile'),
+    {
+      currentPassword: currentPassword,
+      password: newPassword // Backend destructures "password" for the new one
+    },
+    {
+      headers: api.getHeaders()
+>>>>>>> ec337325be1cbdde0c1d11c3577fc9494dd13add
     }
-  };
+  
+  );
+
+  const data = response.data;
+
+  setCurrentPassword('');
+  setNewPassword('');
+  setConfirmPassword('');
+  setSecurityMessage({ type: 'success', text: 'Password changed successfully.' });
+} catch (err: any) {
+  setSecurityMessage({ type: 'error', text: err.response?.data?.message || err.message });
+} finally {
+  setSecurityLoading(false);
+}
+  
+
+  
 
   return (
     <div className="max-w-4xl space-y-12">
