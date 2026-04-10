@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-label: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #002046;
+  --color-primary-container: #1b365d;
+  --color-on-primary: #ffffff;
+  --color-secondary: #515f74;
+  --color-secondary-container: #d5e3fc;
+  --color-on-secondary: #ffffff;
+  --color-tertiary: #321c00;
+  --color-tertiary-container: #4f2f00;
+  --color-on-tertiary: #ffffff;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-surface: #f8f9ff;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-dim: #ccdbf4;
+  --color-surface-container: #e6eeff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #dde9ff;
+  --color-surface-container-highest: #d5e3fd;
+  --color-on-surface: #0d1c2f;
+  --color-on-surface-variant: #44474e;
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
+  --color-primary-fixed: #d6e3ff;
+  --color-primary-fixed-dim: #aec7f7;
+  --color-on-primary-fixed: #001b3d;
+  --color-on-primary-fixed-variant: #2e476f;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+}
+
+.glass-panel {
+  background: rgba(213, 227, 253, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.industrial-gradient {
+  background: linear-gradient(135deg, #002046 0%, #1b365d 100%);
+}
