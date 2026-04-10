@@ -28,6 +28,13 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
 db.user = require("./user.js")(sequelize, DataTypes);
+db.materialCategory = require("./materialCategory.js")(sequelize, DataTypes);
+db.stock = require("./stock.js")(sequelize, DataTypes);
+db.requisition = require("./requisition.js")(sequelize, DataTypes);
+
+// Define associations
+db.materialCategory.hasMany(db.stock, { foreignKey: "material_category_id" });
+db.stock.belongsTo(db.materialCategory, { foreignKey: "material_category_id" });
 
 db.sequelize
   .sync({ force: false })
