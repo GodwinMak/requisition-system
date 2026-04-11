@@ -24,7 +24,7 @@ export default function Login() {
     setError('');
 
     try {
-      const loginResponse = await axios.post(api.url('/login'), { email, password });
+      const loginResponse = await axios.post(api.url('/users/login'), { email, password });
       const loginData = loginResponse.data;
 
       const token = loginData.token || loginData.accessToken;
@@ -39,10 +39,10 @@ export default function Login() {
       const userFromLogin = loginData.user || (loginData.role ? loginData : null);
       
       try {
-        const profileResponse = await axios.get(api.url('/profile'), {
+        const profileResponse = await axios.get(api.url('/users/profile'), {
           headers: api.getHeaders()
         });
-
+      console.log('Profile response:', profileResponse);
         const profileData = profileResponse.data;
         const userData = profileData.user || profileData;
         authHelper.setUser(userData);

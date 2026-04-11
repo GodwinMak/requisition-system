@@ -19,7 +19,7 @@ export default function Register() {
     setError('');
 
     try {
-      await axios.post(api.url('/register'), { 
+      await axios.post(api.url('/users/register'), { 
         username, 
         email, 
         password, 

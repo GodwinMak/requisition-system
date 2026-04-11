@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://test.liquidmatics.co.tz/api/users';
+const API_BASE_URL = 'https://test.liquidmatics.co.tz/api';
 
 export const api = {
   url: (path: string) => `${API_BASE_URL}${path}`,

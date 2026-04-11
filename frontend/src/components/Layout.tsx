@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { authHelper } from '../lib/auth';
 import { 
   LayoutDashboard, 
+  Package,
+  ClipboardList,
   Users, 
   Settings, 
   LogOut, 
@@ -30,6 +32,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: Package, label: 'Inventory', path: '/stock' },
+    { icon: ClipboardList, label: 'My Requests', path: '/requisitions' },
     ...(isAdmin ? [{ icon: Users, label: 'User Management', path: '/admin/users' }] : []),
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];

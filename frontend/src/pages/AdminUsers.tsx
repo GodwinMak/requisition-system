@@ -52,7 +52,7 @@ export default function AdminUsers() {
         params.isActive = filterStatus;
       }
 
-      const response = await axios.get(api.url('/'), {
+      const response = await axios.get(api.url('/users/'), {
         params,
         headers: {
           ...api.getHeaders(),
@@ -82,7 +82,7 @@ export default function AdminUsers() {
 
     try {
       const response = await axios.post(
-        api.url('/register'), 
+        api.url('/users/register'), 
         newUserData, 
         { headers: api.getHeaders() }
       );
@@ -108,7 +108,7 @@ export default function AdminUsers() {
       });
       
       await axios.put(
-        api.url(`/${id}`), 
+        api.url(`/users/${id}`), 
         filteredBody, 
         { headers: api.getHeaders() }
       );
@@ -126,7 +126,7 @@ export default function AdminUsers() {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      await axios.delete(api.url(`/${id}`), {
+      await axios.delete(api.url(`/users/${id}`), {
         headers: api.getHeaders()
       });
       fetchUsers();

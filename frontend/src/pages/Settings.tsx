@@ -32,7 +32,7 @@ export default function Settings() {
     setProfileMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.put(api.url(`/update`), 
+      const response = await axios.put(api.url(`/users/update`), 
         { username: username.trim() }, 
         { headers: api.getHeaders() }
       );
@@ -62,7 +62,7 @@ export default function Settings() {
     setSecurityMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.put(api.url(`/profile`), 
+      const response = await axios.put(api.url(`/users/profile`), 
         { 
           currentPassword: currentPassword, 
           password: newPassword 
