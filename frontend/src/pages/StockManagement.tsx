@@ -41,37 +41,35 @@ export default function StockManagement() {
         return;
       }
 
-      const catRes = await axios.get(api.url('/stock/material-category'), { headers });
+      console.log('Fetching material categories...');
+      const catRes = await axios.get(api.url('/stock/material-category/'), { headers });
+      console.log('Categories loaded successfully:', catRes.data);
+
       const rawCats = catRes.data.materialCategories || catRes.data.rows || (Array.isArray(catRes.data) ? catRes.data : []);
       const sortedCats = [...rawCats].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setCategories(sortedCats);
-
-      // Extract the first category ID with dynamic fallbacks
-      if (sortedCats.length > 0) {
-        const firstCat = sortedCats[0];
-        const firstCatId = firstCat.id ?? firstCat._id ?? (firstCat as any).material_category_id;
-
-        if (firstCatId !== undefined && firstCatId !== null && firstCatId !== '') {
-          setSelectedCategoryId(firstCatId);
-          await fetchStockItems(firstCatId);
-        } else {
-          setLoading(false);
-        }
-      } else {
-        setStockItems([]);
-        setLoading(false);
-      }
+      
+      // Do not automatically select a category or fetch stock items initially
+      setSelectedCategoryId(''); // Ensure no category is selected
+      setStockItems([]); // Clear any previous stock items
+      setLoading(false);
     } catch (err: any) {
+      console.error('CRITICAL: Category Fetch Failure');
+      console.error('Status:', err.response?.status);
+      console.error('Data:', err.response?.data);
+      console.error('Full Error Object:', err);
+      
       setError(err.response?.data?.message || 'Failed to load categories');
       setLoading(false);
     }
   };
 
   // 2. Fetch stock items by specific Category ID
-  const fetchStockItems = async (id: number | string) => {
+  const fetchStockItems = async (material_category_id: number | string) => {
     // STRICT GUARD: Terminate early if the ID is undefined or missing
-    if (id === undefined || id === null || id === '') {
+    if (material_category_id === undefined || material_category_id === null || material_category_id === '') {
       setStockItems([]);
+      setLoading(false); // Ensure loading is turned off if guard is hit
       return;
     }
 
@@ -79,12 +77,19 @@ export default function StockManagement() {
       setLoading(true);
       setError('');
 
-      const url = api.url(`/stock/stock-by-category/${id}`);
+      console.log(`Fetching stock items for Category ID: ${material_category_id}`);
+      const url = api.url(`/stock/stock-by-category/${material_category_id}`);
       const res = await axios.get(url, { headers: api.getHeaders() });
+      console.log('Stock items loaded successfully:', res.data);
       
       const items = res.data.stocks || res.data.rows || (Array.isArray(res.data) ? res.data : []);
       setStockItems(items);
     } catch (err: any) {
+      console.error(`CRITICAL: Stock Fetch Failure for ID: ${material_category_id}`);
+      console.error('Status:', err.response?.status);
+      console.error('Data:', err.response?.data);
+      console.error('Full Error Object:', err);
+
       setError(err.response?.data?.message || 'Failed to load stock items');
       setStockItems([]);
     } finally {
@@ -96,10 +101,10 @@ export default function StockManagement() {
     fetchData(); 
   }, []);
 
-  const handleCategoryChange = (id: number | string) => {
-    setSelectedCategoryId(id);
-    if (id !== undefined && id !== null && id !== '') {
-      fetchStockItems(id);
+  const handleCategoryChange = (material_category_id: number | string) => {
+    setSelectedCategoryId(material_category_id);
+    if (material_category_id !== undefined && material_category_id !== null && material_category_id !== '') {
+      fetchStockItems(material_category_id);
     } else {
       setStockItems([]);
     }
@@ -154,7 +159,10 @@ export default function StockManagement() {
       {error && (
         <div className="flex items-center gap-3 p-4 bg-error-container text-error rounded-2xl border border-error/10">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-bold uppercase tracking-wider">{error}</p>
+          <div className="flex-grow">
+            <p className="text-sm font-bold uppercase tracking-wider">An Error Occurred</p>
+            <p className="text-xs opacity-80">{error}</p>
+          </div>
           <button onClick={fetchData} className="ml-auto text-xs underline font-bold">Retry</button>
         </div>
       )}
@@ -178,7 +186,7 @@ export default function StockManagement() {
             </h3>
             <div className="space-y-2">
               {categories.map((cat) => {
-                const catId = cat.id ?? cat._id ?? (cat as any).material_category_id;
+                const catId = (cat as any).material_category_id || cat.id || (cat as any)._id;
                 if (catId === undefined || catId === null || catId === '') return null;
                 return (
                   <button
@@ -216,18 +224,26 @@ export default function StockManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">
-                    {loading ? (
+                    {/* Conditional rendering for loading, empty state, or data */}
+                    {loading && selectedCategoryId !== '' ? ( // Case 3: Category selected, fetching stock items
                       <tr>
                         <td colSpan={6} className="px-8 py-12 text-center">
                           <Loader2 className="animate-spin text-primary w-8 h-8 mx-auto mb-2" />
                           <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Loading inventory items...</p>
                         </td>
                       </tr>
-                    ) : processedItems.length === 0 ? (
+                    ) : selectedCategoryId === '' ? ( // Case 2: No category selected yet
                       <tr>
                         <td colSpan={6} className="px-8 py-12 text-center">
+                          <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                          <p className="text-sm font-bold text-on-surface-variant uppercase tracking-widest">Select a material category to view stock items</p>
+                        </td>
+                      </tr>
+                    ) : processedItems.length === 0 ? (
+                      <tr> {/* Case 4: Category selected, no stock items found */}
+                        <td colSpan={6} className="px-8 py-12 text-center">
                           <div className="flex flex-col items-center opacity-40">
-                            <Package className="w-12 h-12 mb-2" />
+                            <Package className="w-12 h-12 mb-2" /> {/* Using Package icon for "No stock records" */}
                             <p className="text-sm font-bold uppercase tracking-widest">No stock records found</p>
                           </div>
                         </td>
@@ -244,7 +260,7 @@ export default function StockManagement() {
                           <td className="px-8 py-6">
                             <span className="text-xs font-bold text-on-surface-variant bg-surface-container-high px-3 py-1 rounded-full uppercase tracking-tighter">
                               {categories.find(c => {
-                                const cid = c.id ?? c._id ?? (c as any).material_category_id;
+                                const cid = (c as any).material_category_id || c.id || (c as any)._id;
                                 return cid === item.material_category_id;
                               })?.name || 'N/A'}
                             </span>

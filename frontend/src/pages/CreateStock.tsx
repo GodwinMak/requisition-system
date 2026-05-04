@@ -109,7 +109,12 @@ export default function CreateStock() {
                   >
                     <option value="">Select Category...</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      <option 
+                        key={(cat as any).material_category_id || cat.id} 
+                        value={(cat as any).material_category_id || cat.id}
+                      >
+                        {cat.name}
+                      </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-outline pointer-events-none" />
