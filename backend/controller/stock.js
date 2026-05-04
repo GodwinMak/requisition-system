@@ -6,9 +6,14 @@ const MaterialCategory = db.materialCategory;
 exports.createMaterialCaterory = async (req, res) => {
  try {
     const {name, description} = req.body;
-    const checkCategory = await MaterialCategory.findOne({ where: { name } });
-    if (!checkCategory) {
-        return res.status(404).json({ message: "Material category not found" });
+    // Validate request
+    if (!name) {
+        return res.status(400).json({ message: "Category name is required" });
+    }
+
+    const existingCategory = await MaterialCategory.findOne({ where: { name } });
+    if (existingCategory) {
+        return res.status(409).json({ message: "Material category with this name already exists" });
     }
 
     const newMaterialCategory = await MaterialCategory.create({

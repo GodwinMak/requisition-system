@@ -11,7 +11,8 @@ import {
   Search, 
   Bell, 
   HelpCircle,
-  Menu
+  Menu,
+  Inbox
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -24,6 +25,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const user = authHelper.getUser();
   const isAdmin = authHelper.isAdmin();
+  const canApprove = isAdmin || user?.role === 'procurement' || user?.role === 'approver';
 
   const handleLogout = () => {
     authHelper.clearSession();
@@ -34,6 +36,7 @@ export default function Layout({ children }: LayoutProps) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Package, label: 'Inventory', path: '/stock' },
     { icon: ClipboardList, label: 'My Requests', path: '/requisitions' },
+    ...(canApprove ? [{ icon: Inbox, label: 'Incoming Tasks', path: '/requisitions/tasks' }] : []),
     ...(isAdmin ? [{ icon: Users, label: 'User Management', path: '/admin/users' }] : []),
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];

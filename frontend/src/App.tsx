@@ -54,6 +54,16 @@ export default function App() {
           ) : <Navigate to="/login" />
         } />
 
+        <Route path="/requisitions/tasks" element={
+          isAuthenticated ? (
+            <Layout>
+              <div className="py-20 text-center opacity-30">
+                <p className="font-headline font-bold text-2xl uppercase tracking-[0.3em]">Incoming Approval Queue</p>
+              </div>
+            </Layout>
+          ) : <Navigate to="/login" />
+        } />
+
         <Route path="/" element={<Navigate to="/dashboard" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

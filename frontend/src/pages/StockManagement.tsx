@@ -19,61 +19,100 @@ import CategoryModal from '../components/CategoryModal';
 export default function StockManagement() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<MaterialCategory[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | string | ''>('');
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-
+  
   const canManage = authHelper.isAdmin() || authHelper.getUser()?.role === 'procurement';
-  const userRole = authHelper.getUser()?.role;
 
+  // 1. Initial Load: Fetch categories first
   const fetchData = async () => {
     try {
       setLoading(true);
-      const catRes = await axios.get(api.url('/stock/material-category'), {
-        headers: api.getHeaders()
-      });
-      const cats = catRes.data.materialCategories || [];
-      setCategories(cats);
+      setError('');
+      
+      const headers = api.getHeaders();
+      if (!headers.Authorization) {
+        setError('Authentication session expired. Please login again.');
+        setLoading(false);
+        return;
+      }
 
-      if (cats.length > 0) {
-        const firstCatId = cats[0].id;
-        setSelectedCategoryId(firstCatId);
-        fetchStockByCategory(firstCatId);
+      const catRes = await axios.get(api.url('/stock/material-category'), { headers });
+      const rawCats = catRes.data.materialCategories || catRes.data.rows || (Array.isArray(catRes.data) ? catRes.data : []);
+      const sortedCats = [...rawCats].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setCategories(sortedCats);
+
+      // Extract the first category ID with dynamic fallbacks
+      if (sortedCats.length > 0) {
+        const firstCat = sortedCats[0];
+        const firstCatId = firstCat.id ?? firstCat._id ?? (firstCat as any).material_category_id;
+
+        if (firstCatId !== undefined && firstCatId !== null && firstCatId !== '') {
+          setSelectedCategoryId(firstCatId);
+          await fetchStockItems(firstCatId);
+        } else {
+          setLoading(false);
+        }
       } else {
+        setStockItems([]);
         setLoading(false);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load stock data');
+      setError(err.response?.data?.message || 'Failed to load categories');
       setLoading(false);
     }
   };
 
-  const fetchStockByCategory = async (id: number) => {
+  // 2. Fetch stock items by specific Category ID
+  const fetchStockItems = async (id: number | string) => {
+    // STRICT GUARD: Terminate early if the ID is undefined or missing
+    if (id === undefined || id === null || id === '') {
+      setStockItems([]);
+      return;
+    }
+
     try {
-      const res = await axios.get(api.url(`/stock/stock-by-category/${id}`), {
-        headers: api.getHeaders()
-      });
-      setStockItems(res.data.stocks || []);
+      setLoading(true);
+      setError('');
+
+      const url = api.url(`/stock/stock-by-category/${id}`);
+      const res = await axios.get(url, { headers: api.getHeaders() });
+      
+      const items = res.data.stocks || res.data.rows || (Array.isArray(res.data) ? res.data : []);
+      setStockItems(items);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load items');
+      setError(err.response?.data?.message || 'Failed to load stock items');
+      setStockItems([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, []);
 
-  const handleCategoryChange = (id: number) => {
+  const handleCategoryChange = (id: number | string) => {
     setSelectedCategoryId(id);
-    fetchStockByCategory(id);
+    if (id !== undefined && id !== null && id !== '') {
+      fetchStockItems(id);
+    } else {
+      setStockItems([]);
+    }
   };
 
-  const filteredItems = stockItems.filter(item => 
-    item.items_description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const processedItems = stockItems
+    .filter(item => (item.items_description || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (typeof a.id === 'number' && typeof b.id === 'number') {
+        return a.id - b.id;
+      }
+      return String(a.id).localeCompare(String(b.id));
+    });
 
   if (loading && categories.length === 0) return (
     <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -112,6 +151,14 @@ export default function StockManagement() {
         )}
       </header>
 
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-error-container text-error rounded-2xl border border-error/10">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm font-bold uppercase tracking-wider">{error}</p>
+          <button onClick={fetchData} className="ml-auto text-xs underline font-bold">Retry</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Category Sidebar */}
         <aside className="lg:col-span-1 space-y-4">
@@ -130,25 +177,29 @@ export default function StockManagement() {
               <Layers className="w-4 h-4" /> Material Nodes
             </h3>
             <div className="space-y-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex justify-between items-center group ${
-                    selectedCategoryId === cat.id 
-                    ? 'bg-primary text-on-primary shadow-md' 
-                    : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'
-                  }`}
-                >
-                  {cat.name}
-                  <ArrowRight className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${selectedCategoryId === cat.id ? 'opacity-100' : ''}`} />
-                </button>
-              ))}
+              {categories.map((cat) => {
+                const catId = cat.id ?? cat._id ?? (cat as any).material_category_id;
+                if (catId === undefined || catId === null || catId === '') return null;
+                return (
+                  <button
+                    key={catId}
+                    onClick={() => handleCategoryChange(catId)}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex justify-between items-center group ${
+                      selectedCategoryId === catId 
+                      ? 'bg-primary text-on-primary shadow-md' 
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {cat.name}
+                    <ArrowRight className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${selectedCategoryId === catId ? 'opacity-100' : ''}`} />
+                  </button>
+                );
+              })}
             </div>
           </div>
         </aside>
 
-        {/* Stock Table Area */}
+        {/* Stock Table */}
         <main className="lg:col-span-3">
           <div className="bg-surface-container rounded-3xl overflow-hidden shadow-sm border border-outline-variant/10">
             <div className="p-1">
@@ -157,15 +208,24 @@ export default function StockManagement() {
                   <thead>
                     <tr className="bg-surface-container-low text-on-surface-variant font-label text-[11px] uppercase tracking-[0.2em]">
                       <th className="px-8 py-5 font-semibold">Description</th>
+                      <th className="px-8 py-5 font-semibold">Category</th>
                       <th className="px-8 py-5 font-semibold text-center">Qty Available</th>
                       <th className="px-8 py-5 font-semibold">Unit</th>
+                      <th className="px-8 py-5 font-semibold">Registered</th>
                       <th className="px-8 py-5 font-semibold text-right">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">
-                    {filteredItems.length === 0 ? (
+                    {loading ? (
                       <tr>
-                        <td colSpan={4} className="px-8 py-12 text-center">
+                        <td colSpan={6} className="px-8 py-12 text-center">
+                          <Loader2 className="animate-spin text-primary w-8 h-8 mx-auto mb-2" />
+                          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Loading inventory items...</p>
+                        </td>
+                      </tr>
+                    ) : processedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-8 py-12 text-center">
                           <div className="flex flex-col items-center opacity-40">
                             <Package className="w-12 h-12 mb-2" />
                             <p className="text-sm font-bold uppercase tracking-widest">No stock records found</p>
@@ -173,11 +233,21 @@ export default function StockManagement() {
                         </td>
                       </tr>
                     ) : (
-                      filteredItems.map((item) => (
+                      processedItems.map((item) => (
                         <tr key={item.id} className="group hover:bg-surface-container-low transition-colors duration-200">
                           <td className="px-8 py-6">
                             <p className="font-headline font-bold text-primary">{item.items_description}</p>
-                            <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">ID: STR-{item.id.toString().padStart(4, '0')}</p>
+                            <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">
+                              ID: STR-{item.id ? item.id.toString().padStart(4, '0') : '0000'}
+                            </p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-xs font-bold text-on-surface-variant bg-surface-container-high px-3 py-1 rounded-full uppercase tracking-tighter">
+                              {categories.find(c => {
+                                const cid = c.id ?? c._id ?? (c as any).material_category_id;
+                                return cid === item.material_category_id;
+                              })?.name || 'N/A'}
+                            </span>
                           </td>
                           <td className="px-8 py-6 text-center">
                             <span className={`inline-block px-3 py-1 rounded-lg font-mono font-bold text-lg ${item.available_qty < 10 ? 'text-error' : 'text-on-surface'}`}>
@@ -189,8 +259,13 @@ export default function StockManagement() {
                               {item.unit_of_measure}
                             </span>
                           </td>
+                          <td className="px-8 py-6">
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase">
+                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '---'}
+                            </span>
+                          </td>
                           <td className="px-8 py-6 text-right">
-                            <div className={`w-2 h-2 rounded-full ml-auto ${item.available_qty > 0 ? 'bg-tertiary shadow-[0_0_8px_rgba(var(--tertiary),0.5)]' : 'bg-error'}`} />
+                            <div className={`w-2 h-2 rounded-full ml-auto ${item.available_qty > 0 ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]' : 'bg-red-500'}`} />
                           </td>
                         </tr>
                       ))
